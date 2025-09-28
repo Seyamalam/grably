@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos'
+            os: 'macos-latest'
+          - platform: 'windows'
+            os: 'windows-latest'
+          - platform: 'linux'
+            os: 'ubuntu-latest'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Download binaries (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          chmod +x ./download-binaries.sh
+          ./download-binaries.sh
+
+      - name: Download binaries (Windows)
+        if: matrix.platform == 'windows'
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          .\download-binaries.ps1
+
+      - name: Download binaries (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p src-tauri/resources
+          
+          # Download yt-dlp for Linux
+          echo "Downloading yt-dlp for Linux..."
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o src-tauri/resources/yt-dlp
+          chmod +x src-tauri/resources/yt-dlp
+          
+          # Download ffmpeg for Linux (lightweight approach for CI)
+          echo "Downloading ffmpeg for Linux..."
+          sudo apt-get install -y ffmpeg
+          cp /usr/bin/ffmpeg src-tauri/resources/ffmpeg
+          
+          # Download Whisper model
+          echo "Downloading Whisper model..."
+          curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -o src-tauri/resources/ggml-base.en.bin
+
+      - name: Check Rust formatting
+        run: cd src-tauri && cargo fmt --check
+
+      - name: Lint Rust code
+        run: cd src-tauri && cargo clippy -- -D warnings
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Tauri application (no bundle)
+        run: npm run tauri build -- --no-bundle
