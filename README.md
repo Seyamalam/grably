@@ -103,12 +103,17 @@ npm install
 # OR using batch file
 .\download-binaries.bat
 
+# Verify setup (optional)
+.\check-windows-setup.ps1
+
 # Run in development mode
 npm run tauri dev
 
 # Build for production
 npm run tauri build
 ```
+
+> **Windows Note**: If you encounter issues, run `.\check-windows-setup.ps1` to verify all dependencies are correctly installed.
 
 ---
 
