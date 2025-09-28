@@ -38,11 +38,11 @@
 - No account or registration required
 
 ### ⚡ **Performance**
-- Native macOS app built with Rust & Tauri
+- Native desktop app built with Rust & Tauri
 - Lightning-fast downloads with parallel processing
 - Minimal resource usage
 - Small app size (~200MB)
-- Universal binary (Intel + Apple Silicon)
+- Cross-platform: macOS, Windows, Linux
 
 ---
 
@@ -50,13 +50,14 @@
 
 ### Download Pre-built App
 
-1. Go to [Releases](https://github.com/yourusername/grably/releases)
-2. Download for macOS:
-   - **macOS**: `Grably-Universal.dmg` (Universal - Intel + Apple Silicon)
-3. Open the DMG and drag Grably to Applications
-4. Launch and enjoy!
+1. Go to [Releases](https://github.com/Seyamalam/grably/releases)
+2. Download for your platform:
+   - **Windows**: `Grably_*_x64-setup.exe` (Installer) or `Grably_*_x64.msi` (MSI Package)
+   - **macOS**: `Grably_*_universal.dmg` (Universal - Intel + Apple Silicon)
+   - **Linux**: `Grably_*_amd64.AppImage` (AppImage) or `grably_*_amd64.deb` (Debian package)
+3. Install and launch!
 
-> **Windows & Linux**: Coming soon! Star the repo to get notified.
+> **Automated Builds**: All releases are automatically built using GitHub Actions with all required binaries bundled. No additional downloads needed!
 
 ### Build from Source
 
@@ -64,12 +65,15 @@
 - [Node.js](https://nodejs.org/) (v18+)
 - [Rust](https://www.rust-lang.org/) (latest stable)
 - **macOS**: Xcode Command Line Tools
+- **Windows**: Visual Studio Build Tools or Visual Studio Community
+- **Linux**: Build essentials and system dependencies
 
 #### Installation
 
+**For macOS:**
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/grably.git
+git clone https://github.com/Seyamalam/grably.git
 cd grably
 
 # Install dependencies
@@ -83,6 +87,76 @@ npm run tauri dev
 
 # Build for production
 npm run tauri build
+```
+
+**For Linux:**
+```bash
+# Clone the repository
+git clone https://github.com/Seyamalam/grably.git
+cd grably
+
+# Install dependencies
+npm install
+
+# Install system dependencies (Ubuntu/Debian)
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+# Download required binaries
+./download-binaries-linux.sh
+
+# Run in development mode
+npm run tauri dev
+
+# Build for production
+npm run tauri build
+```
+
+**For Windows:**
+```powershell
+# Clone the repository
+git clone https://github.com/Seyamalam/grably.git
+cd grably
+
+# Install dependencies
+npm install
+
+# Download required binaries (PowerShell)
+.\download-binaries.ps1
+# OR using batch file
+.\download-binaries.bat
+
+# Verify setup (optional)
+.\check-windows-setup.ps1
+
+# Run in development mode
+npm run tauri dev
+
+# Build for production
+npm run tauri build
+```
+
+> **Windows Note**: If you encounter issues, run `.\check-windows-setup.ps1` to verify all dependencies are correctly installed.
+
+### Automated Builds & Releases
+
+Grably uses GitHub Actions to automatically build releases for all platforms:
+
+- **Releases**: Tagged versions (e.g., `v1.0.0`) trigger automatic builds and create GitHub releases
+- **Manual Builds**: Use the "Actions" tab to manually trigger builds from any branch
+- **Continuous Integration**: All pull requests are automatically built and tested
+
+**For Maintainers:**
+```bash
+# Create a new release
+git tag v1.0.0
+git push origin v1.0.0
+# This will automatically build and create a GitHub release with binaries
+
+# Manual build (via GitHub web interface)
+# 1. Go to Actions tab
+# 2. Select "Build and Release" workflow  
+# 3. Click "Run workflow"
+# 4. Choose your branch and options
 ```
 
 ---

@@ -5,6 +5,11 @@ use std::io::{BufRead, BufReader};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, Window};
 
+// Helper function to get cross-platform temporary directory
+fn get_temp_dir() -> PathBuf {
+    std::env::temp_dir()
+}
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct VideoFormat {
@@ -60,11 +65,11 @@ struct PlaylistInfo {
 
 // Helper function to get the path to bundled yt-dlp binary
 fn get_ytdlp_path() -> String {
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(exe_path) = std::env::current_exe() {
-            println!("Executable path: {:?}", exe_path);
-            
+    if let Ok(exe_path) = std::env::current_exe() {
+        println!("Executable path: {:?}", exe_path);
+        
+        #[cfg(target_os = "macos")]
+        {
             // For bundled macOS app: executable is at Contents/MacOS/Grably
             // Resources are at Contents/Resources/resources/
             if let Some(macos_dir) = exe_path.parent() {
@@ -86,31 +91,59 @@ fn get_ytdlp_path() -> String {
                     }
                 }
             }
-            
-            // For development
-            if let Some(parent) = exe_path.parent() {
-                let dev_ytdlp = parent.join("resources").join("yt-dlp");
-                println!("Checking dev yt-dlp at: {:?}", dev_ytdlp);
-                if dev_ytdlp.exists() {
-                    println!("Found dev yt-dlp!");
-                    return dev_ytdlp.to_string_lossy().to_string();
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            // For Windows, binaries are typically in the same directory as the executable
+            if let Some(exe_dir) = exe_path.parent() {
+                // Try yt-dlp.exe first
+                let bundled_ytdlp = exe_dir.join("yt-dlp.exe");
+                println!("Checking bundled yt-dlp at: {:?}", bundled_ytdlp);
+                if bundled_ytdlp.exists() {
+                    println!("Found bundled yt-dlp.exe!");
+                    return bundled_ytdlp.to_string_lossy().to_string();
                 }
+                
+                // Try yt-dlp without extension (portable version)
+                let bundled_ytdlp_no_ext = exe_dir.join("yt-dlp");
+                if bundled_ytdlp_no_ext.exists() {
+                    println!("Found bundled yt-dlp (no extension)!");
+                    return bundled_ytdlp_no_ext.to_string_lossy().to_string();
+                }
+            }
+        }
+        
+        // For development (cross-platform)
+        if let Some(parent) = exe_path.parent() {
+            #[cfg(target_os = "windows")]
+            let dev_ytdlp = parent.join("resources").join("yt-dlp.exe");
+            #[cfg(not(target_os = "windows"))]
+            let dev_ytdlp = parent.join("resources").join("yt-dlp");
+            
+            println!("Checking dev yt-dlp at: {:?}", dev_ytdlp);
+            if dev_ytdlp.exists() {
+                println!("Found dev yt-dlp!");
+                return dev_ytdlp.to_string_lossy().to_string();
             }
         }
     }
     
     println!("Falling back to system yt-dlp");
     // Fallback to system yt-dlp
-    "yt-dlp".to_string()
+    #[cfg(target_os = "windows")]
+    return "yt-dlp.exe".to_string();
+    #[cfg(not(target_os = "windows"))]
+    return "yt-dlp".to_string();
 }
 
 // Helper function to get the path to bundled ffmpeg binary  
 fn get_ffmpeg_path() -> String {
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(exe_path) = std::env::current_exe() {
-            println!("Executable path for ffmpeg: {:?}", exe_path);
-            
+    if let Ok(exe_path) = std::env::current_exe() {
+        println!("Executable path for ffmpeg: {:?}", exe_path);
+        
+        #[cfg(target_os = "macos")]
+        {
             // For bundled macOS app: executable is at Contents/MacOS/Grably
             // Resources are at Contents/Resources/resources/
             if let Some(macos_dir) = exe_path.parent() {
@@ -123,31 +156,51 @@ fn get_ffmpeg_path() -> String {
                     }
                 }
             }
-            
-            // For development
-            if let Some(parent) = exe_path.parent() {
-                let dev_ffmpeg = parent.join("resources").join("ffmpeg");
-                println!("Checking dev ffmpeg at: {:?}", dev_ffmpeg);
-                if dev_ffmpeg.exists() {
-                    println!("Found dev ffmpeg!");
-                    return dev_ffmpeg.to_string_lossy().to_string();
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            // For Windows, binaries are typically in the same directory as the executable
+            if let Some(exe_dir) = exe_path.parent() {
+                let bundled_ffmpeg = exe_dir.join("ffmpeg.exe");
+                println!("Checking bundled ffmpeg at: {:?}", bundled_ffmpeg);
+                if bundled_ffmpeg.exists() {
+                    println!("Found bundled ffmpeg.exe!");
+                    return bundled_ffmpeg.to_string_lossy().to_string();
                 }
+            }
+        }
+        
+        // For development (cross-platform)
+        if let Some(parent) = exe_path.parent() {
+            #[cfg(target_os = "windows")]
+            let dev_ffmpeg = parent.join("resources").join("ffmpeg.exe");
+            #[cfg(not(target_os = "windows"))]
+            let dev_ffmpeg = parent.join("resources").join("ffmpeg");
+            
+            println!("Checking dev ffmpeg at: {:?}", dev_ffmpeg);
+            if dev_ffmpeg.exists() {
+                println!("Found dev ffmpeg!");
+                return dev_ffmpeg.to_string_lossy().to_string();
             }
         }
     }
     
     println!("Falling back to system ffmpeg");
     // Fallback to system ffmpeg
-    "ffmpeg".to_string()
+    #[cfg(target_os = "windows")]
+    return "ffmpeg.exe".to_string();
+    #[cfg(not(target_os = "windows"))]
+    return "ffmpeg".to_string();
 }
 
 // Helper function to get the path to bundled whisper binary
 fn get_whisper_path() -> Result<(PathBuf, PathBuf), String> {
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(exe_path) = std::env::current_exe() {
-            println!("Executable path for whisper: {:?}", exe_path);
-            
+    if let Ok(exe_path) = std::env::current_exe() {
+        println!("Executable path for whisper: {:?}", exe_path);
+        
+        #[cfg(target_os = "macos")]
+        {
             // For bundled macOS app: executable is at Contents/MacOS/Grably
             // Resources are at Contents/Resources/resources/
             if let Some(macos_dir) = exe_path.parent() {
@@ -161,23 +214,45 @@ fn get_whisper_path() -> Result<(PathBuf, PathBuf), String> {
                     }
                 }
             }
-            
-            // For development
-            if let Some(parent) = exe_path.parent() {
-                let dev_whisper = parent.join("resources").join("whisper");
-                let dev_model = parent.join("resources").join("ggml-base.en.bin");
-                println!("Checking dev whisper at: {:?}", dev_whisper);
-                if dev_whisper.exists() && dev_model.exists() {
-                    println!("Found dev whisper and model!");
-                    return Ok((dev_whisper, dev_model));
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            // For Windows, binaries are typically in the same directory as the executable
+            if let Some(exe_dir) = exe_path.parent() {
+                let bundled_whisper = exe_dir.join("whisper.exe");
+                let bundled_model = exe_dir.join("ggml-base.en.bin");
+                println!("Checking bundled whisper at: {:?}", bundled_whisper);
+                if bundled_whisper.exists() && bundled_model.exists() {
+                    println!("Found bundled whisper.exe and model!");
+                    return Ok((bundled_whisper, bundled_model));
                 }
+            }
+        }
+        
+        // For development (cross-platform)
+        if let Some(parent) = exe_path.parent() {
+            #[cfg(target_os = "windows")]
+            let dev_whisper = parent.join("resources").join("whisper.exe");
+            #[cfg(not(target_os = "windows"))]
+            let dev_whisper = parent.join("resources").join("whisper");
+            
+            let dev_model = parent.join("resources").join("ggml-base.en.bin");
+            println!("Checking dev whisper at: {:?}", dev_whisper);
+            if dev_whisper.exists() && dev_model.exists() {
+                println!("Found dev whisper and model!");
+                return Ok((dev_whisper, dev_model));
             }
         }
     }
     
     // Try CARGO_MANIFEST_DIR for development
     let dev_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+    #[cfg(target_os = "windows")]
+    let dev_whisper = dev_dir.join("whisper.exe");
+    #[cfg(not(target_os = "windows"))]
     let dev_whisper = dev_dir.join("whisper");
+    
     let dev_model = dev_dir.join("ggml-base.en.bin");
     if dev_whisper.exists() && dev_model.exists() {
         println!("Found whisper in CARGO_MANIFEST_DIR!");
@@ -351,7 +426,7 @@ async fn download_youtube(
     download_playlist: Option<bool>
 ) -> Result<String, String> {
     let downloads_dir = dirs::download_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"));
+        .unwrap_or_else(|| get_temp_dir());
     
     // Create Grably folder in Downloads
     let grably_dir = downloads_dir.join("Grably");
@@ -655,7 +730,9 @@ async fn get_youtube_subtitles(url: &str) -> Result<String, String> {
     }
     
     // Now actually download the subtitles
-    let subtitle_path = format!("/tmp/{}.en.vtt", video_id);
+    let temp_dir = get_temp_dir();
+    let subtitle_path = temp_dir.join(format!("{}.en.vtt", video_id));
+    let subtitle_path_str = subtitle_path.to_string_lossy();
     
     let download_output = Command::new(&get_ytdlp_path())
         .args(&[
@@ -663,7 +740,7 @@ async fn get_youtube_subtitles(url: &str) -> Result<String, String> {
             "--write-auto-subs",  // Get auto-generated subtitles
             "--sub-lang", "en",
             "--convert-subs", "vtt",  // Convert to VTT format
-            "--output", &format!("/tmp/{}", video_id),
+            "--output", &temp_dir.join(&video_id).to_string_lossy(),
             url
         ])
         .output()
@@ -741,8 +818,9 @@ async fn transcribe_with_whisper(url: &str) -> Result<String, String> {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let audio_path = format!("/tmp/audio_temp_{}.mp3", timestamp);
-    let audio_path_str = audio_path.as_str();
+    let temp_dir = get_temp_dir();
+    let audio_path = temp_dir.join(format!("audio_temp_{}.mp3", timestamp));
+    let audio_path_str = audio_path.to_string_lossy();
     
     // Convert Facebook URLs to mobile version for better compatibility
     let mut processed_url = url.to_string();
@@ -774,16 +852,16 @@ async fn transcribe_with_whisper(url: &str) -> Result<String, String> {
         "-x",
         "--audio-format", "mp3",
         "--audio-quality", "5",
-        "-o", audio_path_str,
+        "-o", &audio_path_str,
     ]);
 
     // For other platforms, let yt-dlp use its defaults
     
     // Check for cookies file
-    let cookies_path = PathBuf::from("/tmp/cookies.txt");
+    let cookies_path = get_temp_dir().join("cookies.txt");
     if cookies_path.exists() {
         args.push("--cookies");
-        args.push("/tmp/cookies.txt");
+        args.push(&cookies_path.to_string_lossy());
     }
     
     // Add the URL at the end
@@ -810,15 +888,16 @@ async fn transcribe_with_whisper(url: &str) -> Result<String, String> {
     println!("Using whisper.cpp at: {:?}", whisper_path);
     
     // Create a temporary output file for transcript
-    let output_file = format!("/tmp/whisper_output_{}", timestamp);
+    let output_file = get_temp_dir().join(format!("whisper_output_{}", timestamp));
+    let output_file_str = output_file.to_string_lossy();
     
     // Use whisper.cpp to transcribe
     let output = Command::new(whisper_path)
         .args(&[
             "-m", model_path.to_str().ok_or("Invalid model path")?,
-            "-f", audio_path_str,
+            "-f", &audio_path_str,
             "-otxt",
-            "-of", &output_file,
+            "-of", &output_file_str,
             "--no-timestamps",
             "-l", "en"
         ])
@@ -827,7 +906,7 @@ async fn transcribe_with_whisper(url: &str) -> Result<String, String> {
     
     if output.status.success() {
         // Read the transcript file
-        let transcript_path = format!("{}.txt", output_file);
+        let transcript_path = format!("{}.txt", output_file_str);
         let transcript = fs::read_to_string(&transcript_path)
             .map_err(|e| format!("Failed to read transcript: {}", e))?;
         
@@ -850,7 +929,7 @@ async fn download_universal(window: Window, url: String, site_type: Option<Strin
     println!("Universal download: {} (type: {:?})", url, site_type);
     
     let downloads_dir = dirs::download_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"));
+        .unwrap_or_else(|| get_temp_dir());
     
     // Create Grably folder in Downloads
     let grably_dir = downloads_dir.join("Grably");
@@ -876,10 +955,10 @@ async fn download_universal(window: Window, url: String, site_type: Option<Strin
     ];
     
     // Check if cookies file exists
-    let cookies_path = PathBuf::from("/tmp/cookies.txt");
+    let cookies_path = get_temp_dir().join("cookies.txt");
     if cookies_path.exists() {
         args.push("--cookies");
-        args.push("/tmp/cookies.txt");
+        args.push(&cookies_path.to_string_lossy());
     }
     
     // Add timestamp to prevent conflicts with simultaneous downloads
@@ -1135,18 +1214,21 @@ async fn transcribe_file(filePath: String) -> Result<String, String> {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let wav_file = format!("/tmp/whisper_audio_{}.wav", timestamp);
-    let output_file = format!("/tmp/whisper_file_output_{}", timestamp);
+    let temp_dir = get_temp_dir();
+    let wav_file = temp_dir.join(format!("whisper_audio_{}.wav", timestamp));
+    let wav_file_str = wav_file.to_string_lossy();
+    let output_file = temp_dir.join(format!("whisper_file_output_{}", timestamp));
+    let output_file_str = output_file.to_string_lossy();
     
     // First convert the file to WAV using ffmpeg
-    println!("Converting to WAV: {} -> {}", filePath, wav_file);
+    println!("Converting to WAV: {} -> {}", filePath, wav_file_str);
     let ffmpeg_output = Command::new(get_ffmpeg_path())
         .args(&[
             "-i", path.to_str().ok_or("Invalid file path")?,
             "-ar", "16000",
             "-ac", "1",
             "-c:a", "pcm_s16le",
-            &wav_file,
+            &wav_file_str,
             "-y"
         ])
         .output()
@@ -1160,13 +1242,13 @@ async fn transcribe_file(filePath: String) -> Result<String, String> {
     println!("Conversion successful, running whisper on WAV file");
     
     // Use whisper.cpp to transcribe the WAV file
-    println!("Running whisper with output file: {}", output_file);
+    println!("Running whisper with output file: {}", output_file_str);
     let output = Command::new(&whisper_path)
         .args(&[
             "-m", model_path.to_str().ok_or("Invalid model path")?,
-            "-f", &wav_file,
+            "-f", &wav_file_str,
             "-otxt",
-            "-of", &output_file,
+            "-of", &output_file_str,
             "--no-timestamps",
             "-l", "en"
         ])
@@ -1183,24 +1265,24 @@ async fn transcribe_file(filePath: String) -> Result<String, String> {
     
     if output.status.success() {
         // Read the transcript file
-        let transcript_path = format!("{}.txt", output_file);
+        let transcript_path = format!("{}.txt", output_file_str);
         println!("Looking for transcript at: {}", transcript_path);
         
         // Check if file exists
         if !PathBuf::from(&transcript_path).exists() {
             // Try without .txt extension
             println!("File not found at {}, trying without .txt", transcript_path);
-            if PathBuf::from(&output_file).exists() {
-                println!("Found file at {}", output_file);
+            if output_file.exists() {
+                println!("Found file at {}", output_file_str);
                 let transcript = fs::read_to_string(&output_file)
                     .map_err(|e| format!("Failed to read transcript: {}", e))?;
                 let _ = fs::remove_file(&output_file);
                 return Ok(transcript.trim().to_string());
             }
             
-            // List files in /tmp to debug
-            println!("Files in /tmp matching pattern:");
-            if let Ok(entries) = fs::read_dir("/tmp") {
+            // List files in temp directory to debug
+            println!("Files in temp directory matching pattern:");
+            if let Ok(entries) = fs::read_dir(&temp_dir) {
                 for entry in entries {
                     if let Ok(entry) = entry {
                         let path = entry.path();
@@ -1211,7 +1293,7 @@ async fn transcribe_file(filePath: String) -> Result<String, String> {
                 }
             }
             
-            return Err(format!("Transcript file not found at {} or {}", transcript_path, output_file));
+            return Err(format!("Transcript file not found at {} or {}", transcript_path, output_file_str));
         }
         
         let transcript = fs::read_to_string(&transcript_path)
