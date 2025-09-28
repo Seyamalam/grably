@@ -38,11 +38,11 @@
 - No account or registration required
 
 ### ⚡ **Performance**
-- Native macOS app built with Rust & Tauri
+- Native desktop app built with Rust & Tauri
 - Lightning-fast downloads with parallel processing
 - Minimal resource usage
 - Small app size (~200MB)
-- Universal binary (Intel + Apple Silicon)
+- Cross-platform: macOS, Windows, Linux
 
 ---
 
@@ -51,12 +51,13 @@
 ### Download Pre-built App
 
 1. Go to [Releases](https://github.com/yourusername/grably/releases)
-2. Download for macOS:
+2. Download for your platform:
    - **macOS**: `Grably-Universal.dmg` (Universal - Intel + Apple Silicon)
-3. Open the DMG and drag Grably to Applications
-4. Launch and enjoy!
+   - **Windows**: `Grably-Setup.exe` or `Grably-Portable.exe`
+   - **Linux**: `Grably.AppImage` or `.deb` package
+3. Install and launch!
 
-> **Windows & Linux**: Coming soon! Star the repo to get notified.
+> **Note**: Windows and Linux builds are now supported! Download the latest release.
 
 ### Build from Source
 
@@ -64,9 +65,12 @@
 - [Node.js](https://nodejs.org/) (v18+)
 - [Rust](https://www.rust-lang.org/) (latest stable)
 - **macOS**: Xcode Command Line Tools
+- **Windows**: Visual Studio Build Tools or Visual Studio Community
+- **Linux**: Build essentials and system dependencies
 
 #### Installation
 
+**For macOS/Linux:**
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/grably.git
@@ -77,6 +81,27 @@ npm install
 
 # Download required binaries
 ./download-binaries.sh
+
+# Run in development mode
+npm run tauri dev
+
+# Build for production
+npm run tauri build
+```
+
+**For Windows:**
+```powershell
+# Clone the repository
+git clone https://github.com/yourusername/grably.git
+cd grably
+
+# Install dependencies
+npm install
+
+# Download required binaries (PowerShell)
+.\download-binaries.ps1
+# OR using batch file
+.\download-binaries.bat
 
 # Run in development mode
 npm run tauri dev
